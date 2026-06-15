@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #181816;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button:not(:disabled) {
+  transition: filter 0.05s;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.2);
+}
+
+button:active:not(:disabled) {
+  filter: brightness(0.85);
+}
+
+input[type="number"]:focus {
+  outline: none;
+  border-color: #e8b849 !important;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
