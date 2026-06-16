@@ -276,8 +276,6 @@ export default function App() {
     setRules(rules.filter(r => parseRule(r).order !== pos));
   };
 
-  const usedSteps = rules.map(r => parseRule(r).step);
-
   const exportRecipes = async () => {
     await navigator.clipboard.writeText(btoa(JSON.stringify(customRecipes)));
     setCopied(true);
@@ -487,20 +485,18 @@ export default function App() {
               </div>
               <div className="flex gap-1 flex-wrap">
                 {STEP_TYPES.map(s => {
-                  const used = usedSteps.includes(s) && getSlotStep(activeSlot) !== s;
                   const isRed = ["hit", "draw"].includes(s);
                   return (
-                    <button key={s} onClick={() => setSlot(activeSlot, s)} disabled={used}
+                    <button key={s} onClick={() => setSlot(activeSlot, s)}
                       className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded cursor-pointer"
                       style={{
                         ...btn(isRed ? "#3a1818" : "#183a18", ""),
                         border: "2px solid #111",
                         minWidth: 48,
-                        opacity: used ? 0.25 : 1,
                       }}>
                       <StepIcon type={s} size={28} />
                       <span className="text-[10px] font-bold" style={{
-                        color: used ? "#555" : (isRed ? "#ff8888" : "#88ff88")
+                        color: isRed ? "#ff8888" : "#88ff88"
                       }}>{STEP_LABELS[s]}</span>
                     </button>
                   );
