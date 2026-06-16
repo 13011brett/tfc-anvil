@@ -228,6 +228,7 @@ export default function App() {
   const [saveName, setSaveName] = useState("");
   const [saveCategory, setSaveCategory] = useState("");
   const [showRecipes, setShowRecipes] = useState(false);
+  const [collapsedCats, setCollapsedCats] = useState(new Set());
 
   const persistRecipes = (recipes) => {
     setCustomRecipes(recipes);
@@ -369,12 +370,24 @@ export default function App() {
             <div className="p-2 max-h-52 overflow-y-auto">
               {customRecipes.length === 0 ? (
                 <p className="text-xs text-center py-4" style={{ color: "#555" }}>No saved recipes. Set positions and rules, then hit 💾 Save.</p>
-              ) : recipeGroups.map(group => (
+              ) : recipeGroups.map(group => {
+                const isCollapsed = group.label && collapsedCats.has(group.label);
+                const toggleCat = () => setCollapsedCats(prev => {
+                  const next = new Set(prev);
+                  next.has(group.label) ? next.delete(group.label) : next.add(group.label);
+                  return next;
+                });
+                return (
                 <div key={group.label}>
                   {group.label && (
-                    <div className="text-[10px] font-bold uppercase px-1 pt-1.5 pb-0.5" style={{ color: "#e8b849" }}>{group.label}</div>
+                    <button onClick={toggleCat}
+                      className="w-full text-[10px] font-bold uppercase px-1 pt-1.5 pb-0.5 flex items-center justify-between cursor-pointer"
+                      style={{ color: "#e8b849", background: "none", border: "none" }}>
+                      <span>{group.label} ({group.items.length})</span>
+                      <span style={{ color: "#666", fontSize: 9 }}>{isCollapsed ? "▶" : "▼"}</span>
+                    </button>
                   )}
-                  {group.items.map(recipe => (
+                  {!isCollapsed && group.items.map(recipe => (
                     <div key={recipe._idx} className="flex items-center justify-between py-1.5 px-2 rounded mb-1 cursor-pointer"
                       style={{ ...btn("#2a2a2a", "#ccc"), cursor: "pointer" }} onClick={() => loadRecipeFromList(recipe)}>
                       <div>
@@ -395,7 +408,7 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-              ))}
+              );})}
             </div>
             <div className="flex gap-1 p-2" style={{ borderTop: "1px solid #333" }}>
               {customRecipes.length > 0 && (
