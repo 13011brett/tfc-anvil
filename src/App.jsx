@@ -226,6 +226,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveName, setSaveName] = useState("");
+  const [saveCategory, setSaveCategory] = useState("");
   const [showRecipes, setShowRecipes] = useState(false);
 
   const persistRecipes = (recipes) => {
@@ -293,10 +294,27 @@ export default function App() {
     } catch {}
   };
 
+  const existingCategories = [...new Set(customRecipes.map(r => r.category).filter(Boolean))].sort();
+
+  const recipeGroups = (() => {
+    const cats = existingCategories;
+    const groups = cats.map(cat => ({
+      label: cat,
+      items: customRecipes.map((r, i) => ({ ...r, _idx: i })).filter(r => r.category === cat),
+    }));
+    const uncategorized = customRecipes.map((r, i) => ({ ...r, _idx: i })).filter(r => !r.category);
+    if (uncategorized.length > 0) {
+      groups.push({ label: cats.length > 0 ? "Uncategorized" : "", items: uncategorized });
+    }
+    return groups;
+  })();
+
   const saveCurrentRecipe = () => {
     if (!saveName.trim()) return;
-    persistRecipes([...customRecipes, { name: saveName.trim(), rules: [...rules], green, red }]);
-    setSaveName(""); setShowSaveDialog(false);
+    const recipe = { name: saveName.trim(), rules: [...rules], green, red };
+    if (saveCategory.trim()) recipe.category = saveCategory.trim();
+    persistRecipes([...customRecipes, recipe]);
+    setSaveName(""); setSaveCategory(""); setShowSaveDialog(false);
   };
 
   const deleteCustomRecipe = (idx) => { persistRecipes(customRecipes.filter((_, i) => i !== idx)); };
@@ -351,24 +369,31 @@ export default function App() {
             <div className="p-2 max-h-52 overflow-y-auto">
               {customRecipes.length === 0 ? (
                 <p className="text-xs text-center py-4" style={{ color: "#555" }}>No saved recipes. Set positions and rules, then hit 💾 Save.</p>
-              ) : customRecipes.map((recipe, idx) => (
-                <div key={idx} className="flex items-center justify-between py-1.5 px-2 rounded mb-1 cursor-pointer"
-                  style={{ ...btn("#2a2a2a", "#ccc"), cursor: "pointer" }} onClick={() => loadRecipeFromList(recipe)}>
-                  <div>
-                    <div className="text-sm font-bold" style={{ color: "#ccc" }}>{recipe.name}</div>
-                    <div className="flex gap-1 mt-0.5 flex-wrap items-center">
-                      {recipe.rules.map((r, ri) => <RuleBadge key={ri} rule={r} />)}
-                      {recipe.green != null && recipe.red != null && (
-                        <span className="text-[10px] ml-1" style={{ color: "#666" }}>
-                          <span style={{ color: "#4ade80" }}>{recipe.green}</span>
-                          {" → "}
-                          <span style={{ color: "#ef4444" }}>{recipe.red}</span>
-                        </span>
-                      )}
+              ) : recipeGroups.map(group => (
+                <div key={group.label}>
+                  {group.label && (
+                    <div className="text-[10px] font-bold uppercase px-1 pt-1.5 pb-0.5" style={{ color: "#e8b849" }}>{group.label}</div>
+                  )}
+                  {group.items.map(recipe => (
+                    <div key={recipe._idx} className="flex items-center justify-between py-1.5 px-2 rounded mb-1 cursor-pointer"
+                      style={{ ...btn("#2a2a2a", "#ccc"), cursor: "pointer" }} onClick={() => loadRecipeFromList(recipe)}>
+                      <div>
+                        <div className="text-sm font-bold" style={{ color: "#ccc" }}>{recipe.name}</div>
+                        <div className="flex gap-1 mt-0.5 flex-wrap items-center">
+                          {recipe.rules.map((r, ri) => <RuleBadge key={ri} rule={r} />)}
+                          {recipe.green != null && recipe.red != null && (
+                            <span className="text-[10px] ml-1" style={{ color: "#666" }}>
+                              <span style={{ color: "#4ade80" }}>{recipe.green}</span>
+                              {" → "}
+                              <span style={{ color: "#ef4444" }}>{recipe.red}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button onClick={(e) => { e.stopPropagation(); deleteCustomRecipe(recipe._idx); }}
+                        className="text-xs px-2 hover:text-red-300 cursor-pointer" style={{ color: "#f87171" }}>✕</button>
                     </div>
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); deleteCustomRecipe(idx); }}
-                    className="text-xs px-2 hover:text-red-300 cursor-pointer" style={{ color: "#f87171" }}>✕</button>
+                  ))}
                 </div>
               ))}
             </div>
@@ -471,12 +496,25 @@ export default function App() {
             </div>
           )}
           {showSaveDialog && (
-            <div className="mt-2 flex items-center gap-2">
-              <input value={saveName} onChange={e => setSaveName(e.target.value)} placeholder="Recipe name..."
-                className="flex-1 rounded px-2 py-1 text-xs" style={{ background: "#1a1a16", color: "#ddd", boxShadow: "inset 1px 1px 0 #0d0d0a, inset -1px -1px 0 #333", border: "1px solid #111" }}
-                onKeyDown={e => e.key === "Enter" && saveCurrentRecipe()} autoFocus />
-              <button onClick={saveCurrentRecipe} className="px-2 py-1 rounded text-xs font-bold cursor-pointer" style={btn("#2d4a2d","#6fc66f")}>Save</button>
-              <button onClick={() => setShowSaveDialog(false)} className="px-2 py-1 rounded text-xs font-bold cursor-pointer" style={btn("#333","#999")}>Cancel</button>
+            <div className="mt-2">
+              <div className="flex items-center gap-2 mb-1.5">
+                <input value={saveName} onChange={e => setSaveName(e.target.value)} placeholder="Recipe name..."
+                  className="flex-1 rounded px-2 py-1 text-xs" style={{ background: "#1a1a16", color: "#ddd", boxShadow: "inset 1px 1px 0 #0d0d0a, inset -1px -1px 0 #333", border: "1px solid #111" }}
+                  onKeyDown={e => e.key === "Enter" && saveCurrentRecipe()} autoFocus />
+                <button onClick={saveCurrentRecipe} className="px-2 py-1 rounded text-xs font-bold cursor-pointer" style={btn("#2d4a2d","#6fc66f")}>Save</button>
+                <button onClick={() => { setShowSaveDialog(false); setSaveCategory(""); }} className="px-2 py-1 rounded text-xs font-bold cursor-pointer" style={btn("#333","#999")}>Cancel</button>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <input value={saveCategory} onChange={e => setSaveCategory(e.target.value)} placeholder="Category (optional)"
+                  className="rounded px-2 py-1 text-xs" style={{ background: "#1a1a16", color: "#ddd", boxShadow: "inset 1px 1px 0 #0d0d0a, inset -1px -1px 0 #333", border: "1px solid #111", width: 130 }} />
+                {existingCategories.map(cat => (
+                  <button key={cat} onClick={() => setSaveCategory(saveCategory === cat ? "" : cat)}
+                    className="text-[10px] px-1.5 py-0.5 rounded cursor-pointer font-bold"
+                    style={{ background: saveCategory === cat ? "#3a5a3a" : "#333", color: saveCategory === cat ? "#88ff88" : "#888", border: `1px solid ${saveCategory === cat ? "#4a7a4a" : "#444"}` }}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
