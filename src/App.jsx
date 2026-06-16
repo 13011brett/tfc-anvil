@@ -220,8 +220,10 @@ export default function App() {
   const [performedSteps, setPerformedSteps] = useState([]);
   const [recipeName, setRecipeName] = useState("");
   const [customRecipes, setCustomRecipes] = useState(() => loadRecipes());
-  const [showAddRule, setShowAddRule] = useState(false);
-  const RULE_POSITIONS = ["third_last", "second_last", "last"];
+  const [activeSlot, setActiveSlot] = useState(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importStr, setImportStr] = useState("");
+  const [copied, setCopied] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [showRecipes, setShowRecipes] = useState(false);
@@ -251,19 +253,44 @@ export default function App() {
     setRecipeName(recipe.name);
     setShowRecipes(false);
     setPerformedSteps([]);
+    setActiveSlot(null);
   };
 
-  const addRuleStep = (step) => {
-    if (rules.length >= 3) return;
-    if (rules.some(r => parseRule(r).step === step)) return;
-    const newRules = [...rules, `${step}_${RULE_POSITIONS[rules.length]}`];
-    setRules(newRules);
-    if (newRules.length >= 3) setShowAddRule(false);
+  const SLOT_POSITIONS = ["last", "second_last", "third_last"];
+
+  const getSlotStep = (pos) => {
+    const rule = rules.find(r => parseRule(r).order === pos);
+    return rule ? parseRule(rule).step : null;
   };
 
-  const removeRule = (idx) => {
-    const remaining = rules.filter((_, i) => i !== idx).map(r => parseRule(r).step);
-    setRules(remaining.map((step, i) => `${step}_${RULE_POSITIONS[i]}`));
+  const setSlot = (pos, step) => {
+    const filtered = rules.filter(r => parseRule(r).order !== pos);
+    if (step) setRules([...filtered, `${step}_${pos}`]);
+    else setRules(filtered);
+    setActiveSlot(null);
+  };
+
+  const clearSlot = (pos) => {
+    setRules(rules.filter(r => parseRule(r).order !== pos));
+  };
+
+  const usedSteps = rules.map(r => parseRule(r).step);
+
+  const exportRecipes = async () => {
+    await navigator.clipboard.writeText(btoa(JSON.stringify(customRecipes)));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const importRecipesFromStr = (str) => {
+    try {
+      const data = JSON.parse(atob(str.trim()));
+      if (Array.isArray(data)) {
+        persistRecipes([...customRecipes, ...data]);
+        setShowImport(false);
+        setImportStr("");
+      }
+    } catch {}
   };
 
   const saveCurrentRecipe = () => {
@@ -345,38 +372,87 @@ export default function App() {
                 </div>
               ))}
             </div>
+            <div className="flex gap-1 p-2" style={{ borderTop: "1px solid #333" }}>
+              {customRecipes.length > 0 && (
+                <button onClick={exportRecipes} className="text-xs px-2 py-1 rounded font-bold cursor-pointer" style={btn("#2d4a3d","#8ac68a")}>
+                  {copied ? "✓ Copied!" : "Export All"}
+                </button>
+              )}
+              <button onClick={() => setShowImport(!showImport)} className="text-xs px-2 py-1 rounded font-bold cursor-pointer" style={btn("#2d3a4a","#8ab8c6")}>
+                Import
+              </button>
+            </div>
+            {showImport && (
+              <div className="flex gap-1 p-2" style={{ borderTop: "1px solid #333" }}>
+                <input value={importStr} onChange={e => setImportStr(e.target.value)} placeholder="Paste recipe data..."
+                  className="flex-1 rounded px-2 py-1 text-xs" style={{ background: "#1a1a16", color: "#ddd", boxShadow: "inset 1px 1px 0 #0d0d0a, inset -1px -1px 0 #333", border: "1px solid #111" }}
+                  onKeyDown={e => e.key === "Enter" && importRecipesFromStr(importStr)} />
+                <button onClick={() => importRecipesFromStr(importStr)} className="px-2 py-1 rounded text-xs font-bold cursor-pointer" style={btn("#2d4a2d","#6fc66f")}>Load</button>
+              </div>
+            )}
           </div>
         )}
 
         {/* Rules */}
         <div className="mb-2 rounded p-2" style={P}>
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-bold" style={{ color: "#999" }}>RULES ({rules.length}/3)</span>
+            <span className="text-xs font-bold" style={{ color: "#999" }}>RULES</span>
             <div className="flex gap-1">
-              <button onClick={() => setShowSaveDialog(true)} className="text-xs px-2 py-0.5 rounded font-bold cursor-pointer" style={btn("#2d4a2d","#6fc66f","#4a7a4a")}>💾 Save</button>
+              <button onClick={() => setShowSaveDialog(true)} className="text-xs px-2 py-0.5 rounded font-bold cursor-pointer" style={btn("#2d4a2d","#6fc66f")}>💾 Save</button>
               {rules.length > 0 && (
-                <button onClick={() => { setRules([]); setRecipeName(""); }} className="text-xs px-2 py-0.5 rounded font-bold cursor-pointer" style={btn("#4a2d2d","#c66f6f","#7a4a4a")}>Clear</button>
+                <button onClick={() => { setRules([]); setRecipeName(""); setActiveSlot(null); }} className="text-xs px-2 py-0.5 rounded font-bold cursor-pointer" style={btn("#4a2d2d","#c66f6f")}>Clear</button>
               )}
             </div>
           </div>
-          <div className="flex flex-wrap gap-1 min-h-[28px]">
-            {rules.map((r, i) => <RuleBadge key={i} rule={r} onRemove={() => removeRule(i)} />)}
-            {rules.length < 3 && (
-              <button onClick={() => setShowAddRule(true)} className="flex items-center gap-1 px-2 py-1 rounded text-xs font-bold cursor-pointer"
-                style={{ background: "#333", border: "1px dashed #555", color: "#888" }}>+ Add Rule</button>
-            )}
+          <div className="flex gap-2">
+            {SLOT_POSITIONS.map(pos => {
+              const step = getSlotStep(pos);
+              const isRed = step && ["hit", "draw"].includes(step);
+              const isActive = activeSlot === pos;
+              return (
+                <div key={pos} className="flex-1 flex flex-col items-center gap-1">
+                  <span className="text-[10px] font-bold" style={{ color: "#7a7a6a" }}>{ORDER_LABELS[pos]}</span>
+                  {step ? (
+                    <div className="relative flex flex-col items-center gap-0.5 p-2 rounded w-full cursor-pointer"
+                      style={{
+                        background: isRed ? "#3a1818" : "#183a18",
+                        boxShadow: "inset 2px 2px 0 #0d0d0d, inset -2px -2px 0 #333",
+                        border: isActive ? "2px solid #e8b849" : "2px solid #111",
+                      }}
+                      onClick={() => setActiveSlot(isActive ? null : pos)}>
+                      <StepIcon type={step} size={28} />
+                      <span className="text-[10px] font-bold" style={{ color: isRed ? "#ff8888" : "#88ff88" }}>{STEP_LABELS[step]}</span>
+                      <button onClick={(e) => { e.stopPropagation(); clearSlot(pos); setActiveSlot(null); }}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] cursor-pointer"
+                        style={{ background: "#4a2d2d", color: "#f87171", border: "1px solid #111", lineHeight: 1 }}>×</button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-2 rounded w-full cursor-pointer"
+                      style={{
+                        background: "#1a1a16",
+                        boxShadow: "inset 2px 2px 0 #0d0d0d, inset -2px -2px 0 #333",
+                        border: isActive ? "2px solid #e8b849" : "2px dashed #333",
+                        minHeight: 52,
+                      }}
+                      onClick={() => setActiveSlot(isActive ? null : pos)}>
+                      <span className="text-lg" style={{ color: "#444" }}>+</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          {showAddRule && (
+          {activeSlot && (
             <div className="mt-2">
-              <div className="text-[10px] font-bold mb-1" style={{ color: "#7a7a6a" }}>
-                SELECT STEP → {ORDER_LABELS[RULE_POSITIONS[rules.length]]}
+              <div className="text-[10px] font-bold mb-1" style={{ color: "#e8b849" }}>
+                SELECT STEP → {ORDER_LABELS[activeSlot]}
               </div>
               <div className="flex gap-1 flex-wrap">
                 {STEP_TYPES.map(s => {
-                  const used = rules.some(r => parseRule(r).step === s);
+                  const used = usedSteps.includes(s) && getSlotStep(activeSlot) !== s;
                   const isRed = ["hit", "draw"].includes(s);
                   return (
-                    <button key={s} onClick={() => addRuleStep(s)} disabled={used}
+                    <button key={s} onClick={() => setSlot(activeSlot, s)} disabled={used}
                       className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded cursor-pointer"
                       style={{
                         ...btn(isRed ? "#3a1818" : "#183a18", ""),
@@ -392,8 +468,6 @@ export default function App() {
                   );
                 })}
               </div>
-              <button onClick={() => setShowAddRule(false)}
-                className="mt-2 px-2 py-1 rounded text-xs font-bold cursor-pointer" style={btn("#333","#999")}>Cancel</button>
             </div>
           )}
           {showSaveDialog && (
@@ -401,8 +475,8 @@ export default function App() {
               <input value={saveName} onChange={e => setSaveName(e.target.value)} placeholder="Recipe name..."
                 className="flex-1 rounded px-2 py-1 text-xs" style={{ background: "#1a1a16", color: "#ddd", boxShadow: "inset 1px 1px 0 #0d0d0a, inset -1px -1px 0 #333", border: "1px solid #111" }}
                 onKeyDown={e => e.key === "Enter" && saveCurrentRecipe()} autoFocus />
-              <button onClick={saveCurrentRecipe} className="px-2 py-1 rounded text-xs font-bold cursor-pointer" style={btn("#2d4a2d","#6fc66f","#4a7a4a")}>Save</button>
-              <button onClick={() => setShowSaveDialog(false)} className="px-2 py-1 rounded text-xs font-bold cursor-pointer" style={btn("#333","#999","#555")}>Cancel</button>
+              <button onClick={saveCurrentRecipe} className="px-2 py-1 rounded text-xs font-bold cursor-pointer" style={btn("#2d4a2d","#6fc66f")}>Save</button>
+              <button onClick={() => setShowSaveDialog(false)} className="px-2 py-1 rounded text-xs font-bold cursor-pointer" style={btn("#333","#999")}>Cancel</button>
             </div>
           )}
         </div>
