@@ -141,82 +141,9 @@ function solve(greenPos, redPos, rules) {
   return bestResult;
 }
 
-// ─── Step & Order icons ───
+// ─── Step icon ───
 function StepIcon({ type, size = 20 }) {
-  const isRed = ["hit", "draw"].includes(type);
-  const color = isRed ? "#ff8888" : "#88ff88";
-
-  const icons = {
-    hit: (
-      <g stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
-        <line x1="12" y1="5" x2="12" y2="16" />
-        <polyline points="8,12 12,16 16,12" />
-      </g>
-    ),
-    draw: (
-      <g stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
-        <line x1="19" y1="12" x2="7" y2="12" />
-        <polyline points="11,8 7,12 11,16" />
-      </g>
-    ),
-    punch: (
-      <g stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
-        <line x1="5" y1="12" x2="17" y2="12" />
-        <polyline points="13,8 17,12 13,16" />
-      </g>
-    ),
-    bend: (
-      <g stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
-        <path d="M7,17 Q7,7 17,7" />
-        <polyline points="13,3 17,7 13,11" />
-      </g>
-    ),
-    upset: (
-      <g stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
-        <line x1="12" y1="19" x2="12" y2="8" />
-        <polyline points="8,12 12,8 16,12" />
-      </g>
-    ),
-    shrink: (
-      <g stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
-        <line x1="3" y1="12" x2="9" y2="12" />
-        <polyline points="6,9 9,12 6,15" />
-        <line x1="21" y1="12" x2="15" y2="12" />
-        <polyline points="18,9 15,12 18,15" />
-      </g>
-    ),
-  };
-
-  return <svg viewBox="0 0 24 24" width={size} height={size}>{icons[type]}</svg>;
-}
-
-function OrderSlots({ order }) {
-  const active = [
-    order === "third_last" || order === "not_last" || order === "any",
-    order === "second_last" || order === "not_last" || order === "any",
-    order === "last" || order === "any",
-  ];
-  const crossed = order === "not_last" ? 2 : -1;
-
-  return (
-    <svg viewBox="0 0 34 12" width={34} height={12}>
-      {[0, 1, 2].map(i => (
-        <g key={i}>
-          <rect x={i * 12} y={0} width={10} height={12} rx={2}
-            fill={active[i] ? "#e8b84933" : "#2a2a2a"}
-            stroke={i === crossed ? "#dc2626" : active[i] ? "#e8b849" : "#444"}
-            strokeWidth={active[i] || i === crossed ? 1.5 : 1}
-          />
-          {i === crossed && (
-            <g stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round">
-              <line x1={i * 12 + 2} y1={2} x2={i * 12 + 8} y2={10} />
-              <line x1={i * 12 + 8} y1={2} x2={i * 12 + 2} y2={10} />
-            </g>
-          )}
-        </g>
-      ))}
-    </svg>
-  );
+  return <img src={`/assets/${type}.png`} alt={type} width={size} height={size} style={{ imageRendering: "pixelated" }} />;
 }
 
 // ─── Rule badge ───
@@ -294,8 +221,7 @@ export default function App() {
   const [recipeName, setRecipeName] = useState("");
   const [customRecipes, setCustomRecipes] = useState(() => loadRecipes());
   const [showAddRule, setShowAddRule] = useState(false);
-  const [newStep, setNewStep] = useState(null);
-  const [newOrder, setNewOrder] = useState("last");
+  const RULE_POSITIONS = ["third_last", "second_last", "last"];
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [showRecipes, setShowRecipes] = useState(false);
@@ -327,10 +253,17 @@ export default function App() {
     setPerformedSteps([]);
   };
 
-  const addRule = () => {
+  const addRuleStep = (step) => {
     if (rules.length >= 3) return;
-    setRules([...rules, `${newStep}_${newOrder}`]);
-    setShowAddRule(false);
+    if (rules.some(r => parseRule(r).step === step)) return;
+    const newRules = [...rules, `${step}_${RULE_POSITIONS[rules.length]}`];
+    setRules(newRules);
+    if (newRules.length >= 3) setShowAddRule(false);
+  };
+
+  const removeRule = (idx) => {
+    const remaining = rules.filter((_, i) => i !== idx).map(r => parseRule(r).step);
+    setRules(remaining.map((step, i) => `${step}_${RULE_POSITIONS[i]}`));
   };
 
   const saveCurrentRecipe = () => {
@@ -427,57 +360,40 @@ export default function App() {
             </div>
           </div>
           <div className="flex flex-wrap gap-1 min-h-[28px]">
-            {rules.map((r, i) => <RuleBadge key={i} rule={r} onRemove={() => setRules(rules.filter((_, j) => j !== i))} />)}
+            {rules.map((r, i) => <RuleBadge key={i} rule={r} onRemove={() => removeRule(i)} />)}
             {rules.length < 3 && (
-              <button onClick={() => { setShowAddRule(true); setNewStep(null); }} className="flex items-center gap-1 px-2 py-1 rounded text-xs font-bold cursor-pointer"
+              <button onClick={() => setShowAddRule(true)} className="flex items-center gap-1 px-2 py-1 rounded text-xs font-bold cursor-pointer"
                 style={{ background: "#333", border: "1px dashed #555", color: "#888" }}>+ Add Rule</button>
             )}
           </div>
           {showAddRule && (
             <div className="mt-2">
-              <div className="text-[10px] font-bold mb-1" style={{ color: "#666" }}>STEP TYPE</div>
-              <div className="flex gap-1 flex-wrap mb-2">
+              <div className="text-[10px] font-bold mb-1" style={{ color: "#7a7a6a" }}>
+                SELECT STEP → {ORDER_LABELS[RULE_POSITIONS[rules.length]]}
+              </div>
+              <div className="flex gap-1 flex-wrap">
                 {STEP_TYPES.map(s => {
+                  const used = rules.some(r => parseRule(r).step === s);
                   const isRed = ["hit", "draw"].includes(s);
-                  const selected = newStep === s;
                   return (
-                    <button key={s} onClick={() => setNewStep(s)}
+                    <button key={s} onClick={() => addRuleStep(s)} disabled={used}
                       className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded cursor-pointer"
                       style={{
-                        ...btn(selected ? (isRed ? "#3a1818" : "#183a18") : "#2d2d2d", ""),
-                        border: `2px solid ${selected ? (isRed ? "#ff6666" : "#66ff66") : "#111"}`,
+                        ...btn(isRed ? "#3a1818" : "#183a18", ""),
+                        border: "2px solid #111",
                         minWidth: 48,
+                        opacity: used ? 0.25 : 1,
                       }}>
-                      <StepIcon type={s} size={22} />
+                      <StepIcon type={s} size={28} />
                       <span className="text-[10px] font-bold" style={{
-                        color: selected ? (isRed ? "#ff8888" : "#88ff88") : "#888"
+                        color: used ? "#555" : (isRed ? "#ff8888" : "#88ff88")
                       }}>{STEP_LABELS[s]}</span>
                     </button>
                   );
                 })}
               </div>
-              {newStep && (
-                <>
-                  <div className="text-[10px] font-bold mb-1" style={{ color: "#666" }}>POSITION</div>
-                  <div className="flex gap-1 flex-wrap">
-                    {ORDER_TYPES.map(o => (
-                      <button key={o} onClick={() => {
-                          if (rules.length >= 3) return;
-                          setRules([...rules, `${newStep}_${o}`]);
-                          setShowAddRule(false);
-                          setNewStep(null);
-                        }}
-                        className="flex flex-col items-center gap-1 px-2 py-1.5 rounded cursor-pointer"
-                        style={{ ...btn("#2d2d2d", ""), border: "2px solid #111", minWidth: 52 }}>
-                        <OrderSlots order={o} />
-                        <span className="text-[10px] font-bold" style={{ color: "#aaa" }}>{ORDER_LABELS[o]}</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-              <button onClick={() => { setShowAddRule(false); setNewStep(null); }}
-                className="mt-2 px-2 py-1 rounded text-xs font-bold cursor-pointer" style={btn("#333","#999","#555")}>Cancel</button>
+              <button onClick={() => setShowAddRule(false)}
+                className="mt-2 px-2 py-1 rounded text-xs font-bold cursor-pointer" style={btn("#333","#999")}>Cancel</button>
             </div>
           )}
           {showSaveDialog && (
@@ -531,12 +447,11 @@ export default function App() {
           <div className="flex gap-1 mb-1.5 flex-wrap">
             {["light-hit", "medium-hit", "hard-hit", "draw"].map(key => {
               const s = STEPS[key], dis = green + s.value < 0;
-              const iconType = HIT_TYPES.includes(key) ? "hit" : key;
               return (
                 <button key={key} onClick={() => performStep(key)} disabled={dis}
                   className="flex-1 min-w-[70px] py-2 rounded text-xs font-bold flex flex-col items-center gap-0.5 cursor-pointer"
-                  style={{ ...btn(dis ? "#2a2020" : "#3a1818", dis ? "#663333" : "#ff8888", dis ? "#442222" : "#662222"), opacity: dis ? 0.4 : 1 }}>
-                  <StepIcon type={iconType} size={18} />
+                  style={{ ...btn(dis ? "#2a2020" : "#3a1818", dis ? "#663333" : "#ff8888"), opacity: dis ? 0.4 : 1 }}>
+                  <StepIcon type={key} size={18} />
                   <span>{s.label}</span>
                   <span className="text-[10px]" style={{ color: dis ? "#552222" : "#cc5555" }}>{s.value}</span>
                 </button>
@@ -549,7 +464,7 @@ export default function App() {
               return (
                 <button key={key} onClick={() => performStep(key)} disabled={dis}
                   className="flex-1 min-w-[70px] py-2 rounded text-xs font-bold flex flex-col items-center gap-0.5 cursor-pointer"
-                  style={{ ...btn(dis ? "#1a2a1a" : "#183a18", dis ? "#336633" : "#88ff88", dis ? "#224422" : "#226622"), opacity: dis ? 0.4 : 1 }}>
+                  style={{ ...btn(dis ? "#1a2a1a" : "#183a18", dis ? "#336633" : "#88ff88"), opacity: dis ? 0.4 : 1 }}>
                   <StepIcon type={key} size={18} />
                   <span>{s.label}</span>
                   <span className="text-[10px]" style={{ color: dis ? "#225522" : "#55cc55" }}>+{s.value}</span>
@@ -576,7 +491,7 @@ export default function App() {
                       boxShadow: "inset 2px 2px 0 #0d0d0d, inset -2px -2px 0 #333",
                       border: "1px solid #111", color: step ? "#ddd" : "#444", minWidth: 60, textAlign: "center"
                     }}>
-                      {step && <StepIcon type={HIT_TYPES.includes(step) ? "hit" : step} size={14} />}
+                      {step && <StepIcon type={step} size={14} />}
                       {step ? STEPS[step].label : "—"}
                     </div>
                   </div>
@@ -629,7 +544,7 @@ export default function App() {
                       }}>
                       <span style={{ width: 24, color: isNext ? "#e8b849" : "#555", fontSize: 10, fontWeight: isNext ? "bold" : "normal" }}>{isNext ? "►" : row.idx}</span>
                       <span className="flex-1 font-bold flex items-center gap-1" style={{ color: isNext ? "#f0d060" : isRed ? "#ff8888" : "#88ff88" }}>
-                        <StepIcon type={HIT_TYPES.includes(row.key) ? "hit" : row.key} size={14} />
+                        <StepIcon type={row.key} size={14} />
                         {row.label}
                       </span>
                       <span style={{ width: 48, textAlign: "right", color: isRed ? "#cc5555" : "#55cc55", fontWeight: "bold" }}>
