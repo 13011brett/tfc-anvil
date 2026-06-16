@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import AlloyCalc from "./AlloyCalc.jsx";
 
 // ─── Step definitions ───
 const STEPS = {
@@ -229,6 +230,7 @@ export default function App() {
   const [saveCategory, setSaveCategory] = useState("");
   const [showRecipes, setShowRecipes] = useState(false);
   const [collapsedCats, setCollapsedCats] = useState(new Set());
+  const [activeTab, setActiveTab] = useState("anvil");
 
   const persistRecipes = (recipes) => {
     setCustomRecipes(recipes);
@@ -240,12 +242,28 @@ export default function App() {
   const solutionTable = useMemo(() => {
     if (!solution || !solution.steps.length) return [];
     let pos = green;
-    return solution.steps.map((s, i) => {
+    const rows = solution.steps.map((s, i) => {
       const v = STEPS[s].value;
       const from = pos;
       pos += v;
       return { idx: i + 1, key: s, label: STEPS[s].label, value: v, from, to: pos, isEnding: i >= solution.steps.length - 3 };
     });
+    const groups = [];
+    let i = 0;
+    while (i < rows.length) {
+      let count = 1;
+      while (i + count < rows.length && rows[i + count].key === rows[i].key) count++;
+      const last = rows[i + count - 1];
+      groups.push({
+        ...rows[i],
+        to: last.to,
+        count,
+        totalValue: rows[i].value * count,
+        isEnding: rows.slice(i, i + count).some(r => r.isEnding),
+      });
+      i += count;
+    }
+    return groups;
   }, [solution, green]);
 
   const loadRecipeFromList = (recipe) => {
@@ -351,10 +369,24 @@ export default function App() {
       <div className="max-w-xl mx-auto">
 
         <div className="text-center mb-3">
-          <h1 className="text-2xl font-bold" style={{ color: "#e8b849", fontFamily: "'Silkscreen', cursive", textShadow: "2px 2px 0 #1a1a0a", letterSpacing: 2 }}>⚒ TFC Anvil</h1>
-          <p className="text-xs mt-0.5" style={{ color: "#7a7a6a" }}>Add rules, set positions, get optimal steps</p>
+          <h1 className="text-2xl font-bold" style={{ color: "#e8b849", fontFamily: "'Silkscreen', cursive", textShadow: "2px 2px 0 #1a1a0a", letterSpacing: 2 }}>⚒ TFC Tools</h1>
+          <div className="flex justify-center gap-1.5 mt-1.5">
+            {[["anvil", "⚒ Anvil"], ["alloys", "⚗ Alloys"]].map(([key, label]) => (
+              <button key={key} onClick={() => setActiveTab(key)}
+                className="px-3 py-1 rounded text-xs font-bold cursor-pointer"
+                style={{
+                  ...btn(activeTab === key ? "#3a3a20" : "#2d2d2d", activeTab === key ? "#e8b849" : "#888"),
+                  border: activeTab === key ? "2px solid #e8b849" : "2px solid #111",
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
+        {activeTab === "alloys" && <AlloyCalc />}
+
+        {activeTab === "anvil" && <>
         {/* Saved Recipes */}
         <button onClick={() => setShowRecipes(!showRecipes)}
           className="w-full mb-2 py-1.5 px-3 rounded text-sm font-bold text-left flex items-center justify-between cursor-pointer"
@@ -667,9 +699,10 @@ export default function App() {
                       <span className="flex-1 font-bold flex items-center gap-1" style={{ color: isNext ? "#f0d060" : isRed ? "#ff8888" : "#88ff88" }}>
                         <StepIcon type={row.key} size={14} />
                         {row.label}
+                        {row.count > 1 && <span style={{ color: isNext ? "#c0a040" : "#999", fontWeight: "normal", fontSize: 10 }}>×{row.count}</span>}
                       </span>
                       <span style={{ width: 48, textAlign: "right", color: isRed ? "#cc5555" : "#55cc55", fontWeight: "bold" }}>
-                        {row.value > 0 ? "+" : ""}{row.value}
+                        {row.totalValue > 0 ? "+" : ""}{row.totalValue}
                       </span>
                       <span style={{ width: 48, textAlign: "right", color: row.to === red ? "#e8b849" : "#aaa", fontWeight: row.to === red ? "bold" : "normal" }}>
                         {row.to}
@@ -705,6 +738,7 @@ export default function App() {
             ))}
           </div>
         </details>
+        </>}
 
       </div>
     </div>

@@ -22,13 +22,48 @@ button:active:not(:disabled) {
   filter: brightness(0.85);
 }
 
-input[type="number"]:focus {
+input[type="number"]:focus,
+input[type="text"]:focus,
+input:not([type]):focus {
   outline: none;
   border-color: #e8b849 !important;
 }
 
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+.alloy-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: #1a1a16;
+  border-radius: 3px;
+  outline: none;
+  box-shadow: inset 1px 1px 0 #0d0d0a;
+  cursor: pointer;
+}
+
+.alloy-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: #e8b849;
+  border: 2px solid #111;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.25), inset -1px -1px 0 rgba(0,0,0,0.25);
+  cursor: pointer;
+}
+
+.alloy-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: #e8b849;
+  border: 2px solid #111;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.25), inset -1px -1px 0 rgba(0,0,0,0.25);
+  cursor: pointer;
 }
 
 input[type="number"]::-webkit-outer-spin-button,
